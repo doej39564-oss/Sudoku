@@ -1,0 +1,41 @@
+<!doctype html><html lang="de"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#2563eb"><link rel="manifest" href="manifest.json"><title>Sudoku</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#17202a;font-family:system-ui,sans-serif}
+main{width:min(560px,100%);margin:auto;background:#fff;min-height:100vh;padding:18px;border-radius:0 0 22px 22px}
+h1{text-align:center;margin:4px 0 12px}.bar,.stats{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+button,select{border:1px solid #cbd5e1;border-radius:11px;background:#fff;padding:10px 12px;font:inherit}.primary{background:#2563eb;color:white}
+.stats{justify-content:space-between;margin:14px 2px;font-weight:700}
+#board{display:grid;grid-template-columns:repeat(9,1fr);width:min(510px,100%);aspect-ratio:1;margin:auto;border:3px solid #17202a}
+.cell{display:flex;align-items:center;justify-content:center;border:1px solid #c7cdd4;font-size:clamp(20px,7vw,34px);font-weight:650;cursor:pointer}
+.cell:nth-child(3n){border-right:2px solid #17202a}.cell:nth-child(9n){border-right:0}
+.cell:nth-child(n+19):nth-child(-n+27),.cell:nth-child(n+46):nth-child(-n+54){border-bottom:2px solid #17202a}
+.given{background:#eef1f4}.selected{background:#dbeafe}.same{background:#eef6ff}.error{background:#fee2e2;color:#b91c1c}
+.keys{display:grid;grid-template-columns:repeat(9,1fr);gap:6px;margin-top:12px}.keys button{padding:11px 2px;font-size:20px;font-weight:700}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}#msg{text-align:center;min-height:30px;margin:12px 0;font-weight:650}
+.install{display:none}
+</style></head><body><main>
+<h1>🧩 Sudoku</h1><div class="bar"><select id="diff"><option value="easy">Leicht</option><option value="medium" selected>Mittel</option><option value="hard">Schwer</option></select>
+<button class="primary" onclick="newGame()">Neues Rätsel</button><button id="install" class="install">📲 App installieren</button></div>
+<div class="stats"><span>⏱️ <span id="time">00:00</span></span><span>Fehler: <span id="errors">0</span></span></div>
+<div id="board"></div><div class="keys" id="keys"></div><div class="actions"><button onclick="erase()">⌫ Löschen</button><button onclick="hint()">💡 Hinweis</button><button onclick="check()">✓ Prüfen</button></div><div id="msg"></div>
+<script>
+let sol=[],puz=[],b=[],sel=-1,err=0,sec=0,timer;
+const $=x=>document.getElementById(x);
+function shuffle(a){for(let i=a.length-1;i;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function pattern(r,c){return(r*3+Math.floor(r/3)+c)%9}
+function makeSol(){let rows=[],cols=[];shuffle([0,1,2]).forEach(x=>shuffle([0,1,2]).forEach(y=>rows.push(x*3+y)));shuffle([0,1,2]).forEach(x=>shuffle([0,1,2]).forEach(y=>cols.push(x*3+y)));let n=shuffle([1,2,3,4,5,6,7,8,9]),s=[];for(let r of rows)for(let c of cols)s.push(n[pattern(r,c)]);return s}
+function newGame(){clearInterval(timer);sec=err=0;sel=-1;sol=makeSol();puz=[...sol];let holes={easy:38,medium:48,hard:55}[$('diff').value];shuffle([...Array(81).keys()]).slice(0,holes).forEach(i=>puz[i]=0);b=[...puz];render();save();timer=setInterval(()=>{sec++;stats();save()},1000);msg('')}
+function render(){let e=$('board');e.innerHTML='';b.forEach((v,i)=>{let d=document.createElement('div');d.className='cell';if(puz[i]){d.classList.add('given');d.textContent=v}else{d.textContent=v||'';d.onclick=()=>{sel=i;render()}}if(i==sel)d.classList.add('selected');if(sel>=0&&v&&v==b[sel])d.classList.add('same');if(v&&v!=sol[i]&&!puz[i])d.classList.add('error');e.appendChild(d)})}
+function put(n){if(sel<0||puz[sel])return;b[sel]=n;render();save()}function erase(){if(sel>=0&&!puz[sel]){b[sel]=0;render();save()}}
+function hint(){if(sel<0||puz[sel])return msg('Bitte zuerst ein leeres Feld wählen.');b[sel]=sol[sel];render();save();msg('Hinweis eingesetzt.')}
+function check(){let w=0,done=true;for(let i=0;i<81;i++){if(!b[i])done=false;if(b[i]&&b[i]!=sol[i])w++}if(w){err+=w;stats();msg('Noch nicht ganz – einige Zahlen sind falsch.')}else if(done){clearInterval(timer);msg('🎉 Glückwunsch! Sudoku gelöst!');localStorage.removeItem('sudokuSave')}else msg('Bis hierhin ist alles richtig.')}
+function stats(){$('errors').textContent=err;let m=String(sec/60|0).padStart(2,'0'),s=String(sec%60).padStart(2,'0');$('time').textContent=m+':'+s}
+function msg(t){$('msg').textContent=t}function save(){localStorage.setItem('sudokuSave',JSON.stringify({sol,puz,b,sel,err,sec,diff:$('diff').value}))}
+function load(){try{let x=JSON.parse(localStorage.getItem('sudokuSave'));if(x&&x.b?.length===81){({sol,puz,b,sel,err,sec}=x);$('diff').value=x.diff||'medium';render();stats();timer=setInterval(()=>{sec++;stats();save()},1000);return true}}catch(e){}return false}
+for(let n=1;n<=9;n++){let q=document.createElement('button');q.textContent=n;q.onclick=()=>put(n);$('keys').appendChild(q)}
+document.addEventListener('keydown',e=>{if(e.key>='1'&&e.key<='9')put(+e.key);if(e.key==='Backspace'||e.key==='Delete')erase()});
+let deferred;addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;$('install').style.display='block'});$('install').onclick=async()=>{if(deferred){deferred.prompt();deferred=null}}
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');load()||newGame();
+</script></main></body></html>
